@@ -30,6 +30,7 @@
   --ok:#4fcb92; --bad:#ff7c68; --ok-bg:#16301f; --bad-bg:#3a1c18; color-scheme:dark; }
 
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:22px 22px;}
@@ -210,7 +211,7 @@ footer{font-size:.85rem;color:var(--muted)}
     <div class="train">
       <div style="display:flex;flex-direction:column;gap:14px">
         <p class="task" id="task"></p>
-        <p class="tip">Runde Resultate auf zwei Stellen nach dem Punkt. Rechne mit ungerundeten Zwischenresultaten weiter (Taschenrechner-Speicher oder ANS-Taste).</p>
+        <p class="tip">Runde jedes Resultat auf eine Stelle nach dem Punkt. Rechne mit den gerundeten Zwischenresultaten weiter.</p>
         <div class="row-btns">
           <button class="btn" id="new-task" type="button">Neue Aufgabe</button>
           <button class="btn" id="open-task" type="button">Im Lösungsweg anschauen</button>
@@ -251,7 +252,7 @@ const vals = { quad:{a:6,b:6,h:4}, rect:{a:8,b:6,h:4}, tri:{a:6,b:6,h:4} };
 const state = { type:'quad', step:0, unfold:0, yaw:-0.62, pitch:0.38, all:false };
 
 /* ---------- Formatierung ---------- */
-function fmt(x, d=2){
+function fmt(x, d=1){
   const r = Math.round(x*Math.pow(10,d))/Math.pow(10,d);
   let [i, f] = Math.abs(r).toString().split('.');
   i = i.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
@@ -270,9 +271,10 @@ const cm2 = 'cm²', cm3 = 'cm³';
 const ln = (x, cls='') => `<div class="ln ${cls}">${x}</div>`;
 
 /* ---------- Mathematik + Schritte ---------- */
+const R = x => Math.round(x*10)/10;
 function compute(type, a, b, h){
   if(type==='quad'){
-    const hs=Math.hypot(h,a/2), G=a*a, V_=G*h/3, AD=a*hs/2, M=4*AD, O=G+M, s=Math.hypot(hs,a/2);
+    const hs=R(Math.hypot(h,a/2)), G=R(a*a), V_=R(G*h/3), AD=R(a*hs/2), M=R(4*AD), O=R(G+M), s=R(Math.hypot(hs,a/2));
     return { vals:{G,V:V_,hs,AD,M,O,s},
       summary:[['G','Grundfläche',G,cm2],['hs','Seitenhöhe h<sub>s</sub>',hs,'cm'],['M','Mantel',M,cm2],['O','Oberfläche',O,cm2],['V','Volumen',V_,cm3]],
       steps:[
@@ -305,7 +307,7 @@ function compute(type, a, b, h){
       ]};
   }
   if(type==='rect'){
-    const ha=Math.hypot(h,b/2), hb=Math.hypot(h,a/2), G=a*b, V_=G*h/3, Aa=a*ha/2, Ab=b*hb/2, M=2*Aa+2*Ab, O=G+M;
+    const ha=R(Math.hypot(h,b/2)), hb=R(Math.hypot(h,a/2)), G=R(a*b), V_=R(G*h/3), Aa=R(a*ha/2), Ab=R(b*hb/2), M=R(2*Aa+2*Ab), O=R(G+M);
     return { vals:{G,V:V_,ha,hb,Aa,Ab,M,O},
       summary:[['G','Grundfläche',G,cm2],['ha','h<sub>a</sub>',ha,'cm'],['hb','h<sub>b</sub>',hb,'cm'],['M','Mantel',M,cm2],['O','Oberfläche',O,cm2],['V','Volumen',V_,cm3]],
       steps:[
@@ -337,7 +339,7 @@ function compute(type, a, b, h){
       ]};
   }
   // tri: gleichseitige Grundfläche
-  const hg=a*Math.sqrt(3)/2, G=a*hg/2, V_=G*h/3, r=hg/3, hs=Math.hypot(h,r), AD=a*hs/2, M=3*AD, O=G+M;
+  const hg=R(a*Math.sqrt(3)/2), G=R(a*hg/2), V_=R(G*h/3), r=R(hg/3), hs=R(Math.hypot(h,r)), AD=R(a*hs/2), M=R(3*AD), O=R(G+M);
   return { vals:{hg,G,V:V_,r,hs,AD,M,O},
     summary:[['G','Grundfläche',G,cm2],['hs','Seitenhöhe h<sub>s</sub>',hs,'cm'],['M','Mantel',M,cm2],['O','Oberfläche',O,cm2],['V','Volumen',V_,cm3]],
     steps:[
@@ -590,7 +592,7 @@ $('#answers').addEventListener('submit',e=>{
     const k=row.dataset.k, want=task.res[k]; const raw=row.querySelector('input').value.replace(/'/g,'').replace(',','.').trim();
     row.classList.remove('ok','bad'); n++;
     if(raw===''){empty++;row.querySelector('.mark').textContent='';return;}
-    const got=parseFloat(raw); const good=Math.abs(got-want)<=Math.max(0.051,Math.abs(want)*0.004);
+    const got=parseFloat(raw); const good=Math.abs(got-want)<=0.051+Math.abs(want)*0.001;
     row.classList.add(good?'ok':'bad'); row.querySelector('.mark').textContent=good?'✓':'✗'; if(good) ok++;
   });
   if(ok===n){ if(!task.done){streak++;task.done=true;} $('#feedback').textContent='Alles richtig. Stark!'; }
