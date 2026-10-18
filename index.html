@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pyramiden-Werkstatt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: Karoheft-Werkstatt. Links der drehbare Körper, rechts der Lösungsweg. Farben codieren die Bauteile (Grundfläche, Höhe, Seitenhöhe, Seitenfläche) überall gleich. */
+:root{
+  --paper:#f5f7f9; --grid:rgba(60,100,170,.09); --surface:#ffffff; --ink:#1b2230; --muted:#5a6474; --line:#d8dee6;
+  --accent:#2347a6; --accent-ink:#ffffff;
+  --c-base:#2f6fb3; --c-h:#d2412f; --c-hs:#1d8a58; --c-hs2:#0e7c8c; --c-face:#df9415; --c-s:#7a4fb5;
+  --ok:#1d8a58; --bad:#c23a2b; --ok-bg:#e5f4ec; --bad-bg:#fbe9e6;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#12151b; --grid:rgba(140,170,230,.06); --surface:#1b1f27; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2d333e;
+  --accent:#8ea6ff; --accent-ink:#0f1430;
+  --c-base:#6aa8ea; --c-h:#ff7c68; --c-hs:#4fcb92; --c-hs2:#4cc4d4; --c-face:#f2b849; --c-s:#b48ee8;
+  --ok:#4fcb92; --bad:#ff7c68; --ok-bg:#16301f; --bad-bg:#3a1c18; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --paper:#12151b; --grid:rgba(140,170,230,.06); --surface:#1b1f27; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2d333e;
+  --accent:#8ea6ff; --accent-ink:#0f1430;
+  --c-base:#6aa8ea; --c-h:#ff7c68; --c-hs:#4fcb92; --c-hs2:#4cc4d4; --c-face:#f2b849; --c-s:#b48ee8;
+  --ok:#4fcb92; --bad:#ff7c68; --ok-bg:#16301f; --bad-bg:#3a1c18; color-scheme:dark; }
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:22px 22px;}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 56px;display:flex;flex-direction:column;gap:28px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.5rem;font-weight:800}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0}
+.eyebrow{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+header{display:flex;flex-direction:column;gap:10px}
+.lead{max-width:62ch;color:var(--muted);font-size:1.05rem}
+
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{font:inherit;font-weight:700;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 16px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px}
+.tab svg{width:26px;height:26px;flex:none}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tab:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.explorer{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.explorer{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+
+.stage{position:relative}
+canvas{width:100%;aspect-ratio:4/3;display:block;touch-action:none;cursor:grab;border-radius:10px;background:
+  linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px;max-width:100%}
+canvas:active{cursor:grabbing}
+.stage-hint{position:absolute;left:10px;bottom:8px;font-size:.78rem;color:var(--muted);font-family:var(--f-mono);pointer-events:none}
+.reset{position:absolute;right:8px;top:8px;font:inherit;font-size:.8rem;background:var(--surface);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:4px 10px;cursor:pointer}
+
+.ctrls{display:flex;flex-direction:column;gap:10px}
+.ctrl{display:grid;grid-template-columns:minmax(0,9.5em) minmax(0,1fr) 5.2em 2em;gap:10px;align-items:center}
+.ctrl label{font-weight:700;font-size:.95rem}
+.ctrl input[type=range]{width:100%;accent-color:var(--accent)}
+.ctrl input[type=number]{width:100%;font:inherit;font-family:var(--f-mono);font-size:.95rem;padding:5px 6px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.ctrl .unit{color:var(--muted);font-family:var(--f-mono);font-size:.85rem}
+@media (max-width:480px){.ctrl{grid-template-columns:1fr 4.6em 2em}.ctrl label{grid-column:1/-1}.ctrl input[type=range]{grid-column:1/2}}
+.unfold-row{border-top:1px dashed var(--line);padding-top:10px}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.82rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.chip{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:2px;background:var(--paper)}
+.chip .k{font-size:.82rem;color:var(--muted)}
+.chip .val{font-family:var(--f-mono);font-weight:700;font-size:1rem;font-variant-numeric:tabular-nums}
+.chip.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+
+/* Lösungsweg */
+.steps-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.dots{display:flex;gap:6px;flex-wrap:wrap}
+.dot{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line);background:var(--paper);color:var(--muted);font:700 .8rem var(--f-mono);cursor:pointer}
+.dot.done{border-color:var(--accent);color:var(--accent)}
+.dot.cur{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--muted);cursor:pointer}
+.toggle input{accent-color:var(--accent);width:16px;height:16px}
+
+.step{display:flex;flex-direction:column;gap:12px;border-radius:12px}
+.list .step{border:1px solid var(--line);padding:14px;cursor:pointer}
+.list .step.cur{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.step-no{font-family:var(--f-mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.step p{max-width:62ch}
+.calc{font-family:var(--f-mono);font-size:1.02rem;display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:var(--paper);border-radius:10px;border:1px dashed var(--line);overflow-x:auto}
+.calc .ln{white-space:nowrap;display:flex;align-items:center;gap:.35em;flex-wrap:nowrap}
+.calc .ln.lbl{font-family:var(--f-body);font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.calc .res{font-weight:700;font-size:1.12rem}
+.tip{font-size:.9rem;color:var(--muted);border-left:3px solid var(--line);padding-left:10px}
+.nav{display:flex;gap:10px;justify-content:space-between}
+.btn{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+
+/* Formelsatz */
+.v{font-style:italic;font-weight:700;font-family:var(--f-mono)}
+.v sub{font-size:.7em;font-style:normal}
+.vh{color:var(--c-h)} .vhs{color:var(--c-hs)} .vhb{color:var(--c-hs2)} .vg{color:var(--c-base)} .vf{color:var(--c-face)} .vs{color:var(--c-s)} .vr{color:var(--c-base)}
+.frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;line-height:1.25;margin:0 .15em}
+.frac>span:first-child{border-bottom:1.5px solid currentColor;padding:0 .25em}
+.frac>span:last-child{padding:0 .25em}
+.sqrt{display:inline-flex;align-items:flex-start}
+.sqrt>span{border-top:1.5px solid currentColor;padding:2px .2em 0;display:inline-flex;align-items:center;gap:.25em}
+
+/* Training */
+.train{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.train{grid-template-columns:1fr}}
+.task{font-size:1.05rem;max-width:62ch}
+.task b{font-family:var(--f-mono)}
+.answers{display:flex;flex-direction:column;gap:10px}
+.ans{display:grid;grid-template-columns:minmax(0,1fr) 8em 2.4em 1.6em;gap:10px;align-items:center}
+.ans input{font:inherit;font-family:var(--f-mono);padding:7px 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);width:100%}
+.ans.ok input{border-color:var(--ok);background:var(--ok-bg)}
+.ans.bad input{border-color:var(--bad);background:var(--bad-bg)}
+.ans .mark{font-weight:700}
+.ans.ok .mark{color:var(--ok)} .ans.bad .mark{color:var(--bad)}
+.ans .unit{color:var(--muted);font-family:var(--f-mono);font-size:.85rem}
+.ans .sol{grid-column:1/-1;font-family:var(--f-mono);font-size:.88rem;color:var(--muted)}
+.row-btns{display:flex;gap:10px;flex-wrap:wrap}
+.feedback{font-weight:700}
+.streak{font-family:var(--f-mono);font-size:.85rem;color:var(--muted)}
+
+.mistakes{display:flex;flex-direction:column;gap:12px}
+.mistakes li{max-width:62ch}
+.mistakes ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px}
+
+.sheet{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.sheet{grid-template-columns:1fr}}
+.sheet .panel{gap:10px}
+.sheet .calc{font-size:.95rem}
+footer{font-size:.85rem;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.step{animation:fade .25s ease}}
+@keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Mathematik · 3. Oberstufe St.Gallen · Repetition</span>
+    <h1>Pyramiden-Werkstatt</h1>
+    <p class="lead">Oberfläche und Volumen von quadratischen, rechteckigen und dreieckigen Pyramiden. Verändere die Masse, drehe den Körper und geh die Rechnung Schritt für Schritt durch.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Pyramidentyp">
+    <button class="tab" role="tab" id="tab-quad" data-type="quad" aria-selected="true">
+      <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 19 L10 23 L23 19 L16 15 Z"/><path d="M3 19 L13 3 L10 23 M13 3 L23 19 M13 3 L16 15" /></svg>Quadratische Pyramide</button>
+    <button class="tab" role="tab" id="tab-rect" data-type="rect" aria-selected="false">
+      <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 19 L8 23 L25 19 L18 15 Z"/><path d="M1 19 L13 4 L8 23 M13 4 L25 19 M13 4 L18 15"/></svg>Rechteckpyramide</button>
+    <button class="tab" role="tab" id="tab-tri" data-type="tri" aria-selected="false">
+      <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 20 L22 21 L15 15 Z"/><path d="M3 20 L13 3 L22 21 M13 3 L15 15"/></svg>Dreieckspyramide</button>
+  </div>
+
+  <section class="explorer" aria-label="Rechner">
+    <div class="panel">
+      <div class="stage">
+        <canvas id="cv" aria-label="Drehbare Darstellung der Pyramide"></canvas>
+        <span class="stage-hint">Ziehen zum Drehen</span>
+        <button class="reset" id="reset-view" type="button">Ansicht zurücksetzen</button>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--c-base)"></i>Grundfläche G</span>
+        <span><i style="background:var(--c-h)"></i>Körperhöhe h</span>
+        <span><i style="background:var(--c-hs)"></i>Seitenhöhe</span>
+        <span><i style="background:var(--c-face)"></i>Seitenfläche</span>
+        <span><i style="background:var(--c-s)"></i>Seitenkante s</span>
+      </div>
+      <div class="ctrls">
+        <div class="ctrl" id="row-a"><label for="in-a" id="lab-a">Grundkante a</label><input type="range" id="rg-a" min="2" max="12" step="0.5" aria-labelledby="lab-a"><input type="number" id="in-a" min="1" max="30" step="0.1"><span class="unit">cm</span></div>
+        <div class="ctrl" id="row-b"><label for="in-b" id="lab-b">Grundkante b</label><input type="range" id="rg-b" min="2" max="12" step="0.5" aria-labelledby="lab-b"><input type="number" id="in-b" min="1" max="30" step="0.1"><span class="unit">cm</span></div>
+        <div class="ctrl" id="row-h"><label for="in-h" id="lab-h">Körperhöhe h</label><input type="range" id="rg-h" min="2" max="12" step="0.5" aria-labelledby="lab-h"><input type="number" id="in-h" min="1" max="30" step="0.1"><span class="unit">cm</span></div>
+        <div class="ctrl unfold-row"><label for="rg-u" id="lab-u">Netz aufklappen</label><input type="range" id="rg-u" min="0" max="100" step="1" value="0"><span class="unit" id="u-val">0 %</span><span></span></div>
+      </div>
+      <div class="summary" id="summary"></div>
+    </div>
+
+    <div class="panel" id="steps-panel">
+      <div class="steps-head">
+        <h2>Lösungsweg</h2>
+        <label class="toggle"><input type="checkbox" id="show-all">Alle Schritte zeigen</label>
+      </div>
+      <div class="dots" id="dots" aria-label="Schritte"></div>
+      <div id="steps"></div>
+      <div class="nav" id="nav">
+        <button class="btn" id="prev" type="button">Zurück</button>
+        <button class="btn primary" id="next" type="button">Weiter</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="train-h">
+    <div class="steps-head">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span class="eyebrow">Selber rechnen</span>
+        <h2 id="train-h">Training</h2>
+      </div>
+      <span class="streak" id="streak">Richtig gelöst: 0</span>
+    </div>
+    <div class="train">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <p class="task" id="task"></p>
+        <p class="tip">Runde Resultate auf zwei Stellen nach dem Punkt. Rechne mit ungerundeten Zwischenresultaten weiter (Taschenrechner-Speicher oder ANS-Taste).</p>
+        <div class="row-btns">
+          <button class="btn" id="new-task" type="button">Neue Aufgabe</button>
+          <button class="btn" id="open-task" type="button">Im Lösungsweg anschauen</button>
+        </div>
+      </div>
+      <form class="answers" id="answers" novalidate>
+        <div id="ans-fields" class="answers"></div>
+        <div class="row-btns">
+          <button class="btn primary" type="submit">Prüfen</button>
+          <button class="btn" type="button" id="reveal">Lösungen zeigen</button>
+        </div>
+        <p class="feedback" id="feedback" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel mistakes" aria-labelledby="err-h">
+    <h2 id="err-h">Die drei häufigsten Fehler</h2>
+    <ul>
+      <li><b>Körperhöhe und Seitenhöhe verwechseln.</b> Für das Volumen brauchst du <span class="v vh">h</span> (senkrecht in der Mitte). Für die Seitenflächen brauchst du die Seitenhöhe <span class="v vhs">h<sub>s</sub></span> (auf der Seitenfläche). Die Seitenhöhe ist immer länger als die Körperhöhe.</li>
+      <li><b>Den Drittel vergessen.</b> Ohne <span class="frac"><span>1</span><span>3</span></span> rechnest du das Volumen eines Prismas, also dreimal zu viel.</li>
+      <li><b>Mantel und Oberfläche verwechseln.</b> Der Mantel besteht nur aus den Seitenflächen. Die Oberfläche ist Mantel plus Grundfläche.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="sheet-h" style="display:flex;flex-direction:column;gap:14px">
+    <h2 id="sheet-h">Formelblatt</h2>
+    <div class="sheet" id="sheet"></div>
+  </section>
+
+  <footer>Masse in cm. Bei der Dreieckspyramide ist die Grundfläche ein gleichseitiges Dreieck und die Spitze liegt über dem Schwerpunkt.</footer>
+</div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const vals = { quad:{a:6,b:6,h:4}, rect:{a:8,b:6,h:4}, tri:{a:6,b:6,h:4} };
+const state = { type:'quad', step:0, unfold:0, yaw:-0.62, pitch:0.38, all:false };
+
+/* ---------- Formatierung ---------- */
+function fmt(x, d=2){
+  const r = Math.round(x*Math.pow(10,d))/Math.pow(10,d);
+  let [i, f] = Math.abs(r).toString().split('.');
+  i = i.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  return (r<0?'−':'') + i + (f ? '.'+f : '');
+}
+const V = {
+  a:'<i class="v">a</i>', b:'<i class="v">b</i>', h:'<i class="v vh">h</i>',
+  hs:'<i class="v vhs">h<sub>s</sub></i>', ha:'<i class="v vhs">h<sub>a</sub></i>', hb:'<i class="v vhb">h<sub>b</sub></i>',
+  G:'<i class="v vg">G</i>', M:'<i class="v vf">M</i>', O:'<i class="v">O</i>', Vol:'<i class="v">V</i>',
+  s:'<i class="v vs">s</i>', hg:'<i class="v vg">h<sub>g</sub></i>', r:'<i class="v vr">r</i>',
+  AD:'<i class="v vf">A<sub>Δ</sub></i>', Aa:'<i class="v vf">A<sub>a</sub></i>', Ab:'<i class="v vf">A<sub>b</sub></i>'
+};
+const fr = (n,d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+const sq = x => `<span class="sqrt">√<span>${x}</span></span>`;
+const cm2 = 'cm²', cm3 = 'cm³';
+const ln = (x, cls='') => `<div class="ln ${cls}">${x}</div>`;
+
+/* ---------- Mathematik + Schritte ---------- */
+function compute(type, a, b, h){
+  if(type==='quad'){
+    const hs=Math.hypot(h,a/2), G=a*a, V_=G*h/3, AD=a*hs/2, M=4*AD, O=G+M, s=Math.hypot(hs,a/2);
+    return { vals:{G,V:V_,hs,AD,M,O,s},
+      summary:[['G','Grundfläche',G,cm2],['hs','Seitenhöhe h<sub>s</sub>',hs,'cm'],['M','Mantel',M,cm2],['O','Oberfläche',O,cm2],['V','Volumen',V_,cm3]],
+      steps:[
+        {t:'Was ist gegeben?', on:[], hl:['h'],
+          p:`Die Grundfläche ist ein Quadrat mit der Grundkante ${V.a}. Die Spitze liegt genau über dem Mittelpunkt des Quadrats. Die Körperhöhe ${V.h} misst senkrecht von der Spitze bis zur Grundfläche.`,
+          f:[`${V.a} = ${fmt(a)} cm`, `${V.h} = ${fmt(h)} cm`]},
+        {t:'Grundfläche G', on:['G'], hl:['base'],
+          p:`Die Grundfläche ist ein Quadrat. Also rechnest du Seite mal Seite.`,
+          f:[`${V.G} = ${V.a} · ${V.a}`, `${V.G} = ${fmt(a)} · ${fmt(a)}`], r:`${V.G} = ${fmt(G)} ${cm2}`},
+        {t:'Volumen V', on:['V'], hl:['base','h'],
+          p:`Eine Pyramide hat genau einen Drittel des Volumens eines Prismas mit gleicher Grundfläche und gleicher Höhe.`,
+          f:[`${V.Vol} = ${fr(V.G+' · '+V.h,'3')}`, `${V.Vol} = ${fr(fmt(G)+' · '+fmt(h),'3')}`], r:`${V.Vol} = ${fmt(V_)} ${cm3}`},
+        {t:'Seitenhöhe mit Pythagoras', on:['hs'], hl:['pyth','h','hs'],
+          p:`Für die Oberfläche brauchst du die Höhe der dreieckigen Seitenfläche. Sie ist die Hypotenuse im grünen rechtwinkligen Dreieck. Die Katheten sind die Körperhöhe ${V.h} und die halbe Grundkante ${fr(V.a,'2')}.`,
+          f:[`${V.hs} = ${sq(`${V.h}² + (${fr(V.a,'2')})²`)}`, `${V.hs} = ${sq(`${fmt(h)}² + ${fmt(a/2)}²`)} = ${sq(fmt(h*h+a*a/4,4))}`], r:`${V.hs} ≈ ${fmt(hs)} cm`,
+          tip:`Die Seitenhöhe ist immer länger als die Körperhöhe.`},
+        {t:'Eine Seitenfläche', on:[], hl:['face','hs'],
+          p:`Jede Seitenfläche ist ein Dreieck mit der Grundseite ${V.a} und der Höhe ${V.hs}.`,
+          f:[`${V.AD} = ${fr(V.a+' · '+V.hs,'2')}`, `${V.AD} = ${fr(fmt(a)+' · '+fmt(hs),'2')}`], r:`${V.AD} ≈ ${fmt(AD)} ${cm2}`},
+        {t:'Mantel M', on:['M'], hl:['faces'],
+          p:`Der Mantel besteht aus den vier gleich grossen Seitenflächen.`,
+          f:[`${V.M} = 4 · ${V.AD} = 2 · ${V.a} · ${V.hs}`, `${V.M} = 4 · ${fmt(AD)}`], r:`${V.M} ≈ ${fmt(M)} ${cm2}`,
+          tip:`Schieb den Regler «Netz aufklappen» nach rechts. Dann siehst du die vier Dreiecke rund um das Quadrat.`},
+        {t:'Oberfläche O', on:['O'], hl:['base','faces'],
+          p:`Die Oberfläche ist alles, was du anmalen könntest: Grundfläche plus Mantel.`,
+          f:[`${V.O} = ${V.G} + ${V.M}`, `${V.O} = ${fmt(G)} + ${fmt(M)}`], r:`${V.O} ≈ ${fmt(O)} ${cm2}`},
+        {t:'Zusatz: Seitenkante s', on:[], hl:['face','s','hs'],
+          p:`Manchmal ist die Seitenkante ${V.s} gefragt. Sie ist die Hypotenuse im Dreieck aus der Seitenhöhe ${V.hs} und der halben Grundkante.`,
+          f:[`${V.s} = ${sq(`${V.hs}² + (${fr(V.a,'2')})²`)}`, `${V.s} = ${sq(`${fmt(hs)}² + ${fmt(a/2)}²`)}`], r:`${V.s} ≈ ${fmt(s)} cm`}
+      ]};
+  }
+  if(type==='rect'){
+    const ha=Math.hypot(h,b/2), hb=Math.hypot(h,a/2), G=a*b, V_=G*h/3, Aa=a*ha/2, Ab=b*hb/2, M=2*Aa+2*Ab, O=G+M;
+    return { vals:{G,V:V_,ha,hb,Aa,Ab,M,O},
+      summary:[['G','Grundfläche',G,cm2],['ha','h<sub>a</sub>',ha,'cm'],['hb','h<sub>b</sub>',hb,'cm'],['M','Mantel',M,cm2],['O','Oberfläche',O,cm2],['V','Volumen',V_,cm3]],
+      steps:[
+        {t:'Was ist gegeben?', on:[], hl:['h'],
+          p:`Die Grundfläche ist ein Rechteck mit den Kanten ${V.a} (vorne) und ${V.b} (seitlich). Die Spitze liegt über dem Mittelpunkt des Rechtecks.`,
+          f:[`${V.a} = ${fmt(a)} cm`, `${V.b} = ${fmt(b)} cm`, `${V.h} = ${fmt(h)} cm`]},
+        {t:'Grundfläche G', on:['G'], hl:['base'],
+          p:`Die Grundfläche ist ein Rechteck: Länge mal Breite.`,
+          f:[`${V.G} = ${V.a} · ${V.b}`, `${V.G} = ${fmt(a)} · ${fmt(b)}`], r:`${V.G} = ${fmt(G)} ${cm2}`},
+        {t:'Volumen V', on:['V'], hl:['base','h'],
+          p:`Auch hier gilt: ein Drittel von Grundfläche mal Höhe.`,
+          f:[`${V.Vol} = ${fr(V.G+' · '+V.h,'3')}`, `${V.Vol} = ${fr(fmt(G)+' · '+fmt(h),'3')}`], r:`${V.Vol} = ${fmt(V_)} ${cm3}`},
+        {t:'Seitenhöhe h<sub>a</sub> (vorne)', on:['ha'], hl:['pyth','h','hs'],
+          p:`Die Rechteckpyramide hat zwei verschiedene Seitenhöhen. ${V.ha} gehört zu den Dreiecken über der Kante ${V.a}. Achtung: Die Kathete am Boden ist hier die halbe Kante ${V.b}, denn sie läuft vom Mittelpunkt nach vorne.`,
+          f:[`${V.ha} = ${sq(`${V.h}² + (${fr(V.b,'2')})²`)}`, `${V.ha} = ${sq(`${fmt(h)}² + ${fmt(b/2)}²`)}`], r:`${V.ha} ≈ ${fmt(ha)} cm`},
+        {t:'Seitenhöhe h<sub>b</sub> (seitlich)', on:['hb'], hl:['pythb','h','hb'],
+          p:`${V.hb} gehört zu den Dreiecken über der Kante ${V.b}. Jetzt ist die Kathete am Boden die halbe Kante ${V.a}.`,
+          f:[`${V.hb} = ${sq(`${V.h}² + (${fr(V.a,'2')})²`)}`, `${V.hb} = ${sq(`${fmt(h)}² + ${fmt(a/2)}²`)}`], r:`${V.hb} ≈ ${fmt(hb)} cm`},
+        {t:'Die Seitenflächen', on:[], hl:['face','faceb','hs','hb'],
+          p:`Es gibt je zwei gleiche Dreiecke: zwei über ${V.a} und zwei über ${V.b}.`,
+          f:[`${V.Aa} = ${fr(V.a+' · '+V.ha,'2')} = ${fr(fmt(a)+' · '+fmt(ha),'2')} ≈ ${fmt(Aa)} ${cm2}`, `${V.Ab} = ${fr(V.b+' · '+V.hb,'2')} = ${fr(fmt(b)+' · '+fmt(hb),'2')} ≈ ${fmt(Ab)} ${cm2}`]},
+        {t:'Mantel M', on:['M'], hl:['faces'],
+          p:`Der Mantel sind alle vier Dreiecke zusammen.`,
+          f:[`${V.M} = 2 · ${V.Aa} + 2 · ${V.Ab}`, `${V.M} = 2 · ${fmt(Aa)} + 2 · ${fmt(Ab)}`], r:`${V.M} ≈ ${fmt(M)} ${cm2}`,
+          tip:`Kurzform: ${V.M} = ${V.a} · ${V.ha} + ${V.b} · ${V.hb}`},
+        {t:'Oberfläche O', on:['O'], hl:['base','faces'],
+          p:`Grundfläche plus Mantel.`,
+          f:[`${V.O} = ${V.G} + ${V.M}`, `${V.O} = ${fmt(G)} + ${fmt(M)}`], r:`${V.O} ≈ ${fmt(O)} ${cm2}`}
+      ]};
+  }
+  // tri: gleichseitige Grundfläche
+  const hg=a*Math.sqrt(3)/2, G=a*hg/2, V_=G*h/3, r=hg/3, hs=Math.hypot(h,r), AD=a*hs/2, M=3*AD, O=G+M;
+  return { vals:{hg,G,V:V_,r,hs,AD,M,O},
+    summary:[['G','Grundfläche',G,cm2],['hs','Seitenhöhe h<sub>s</sub>',hs,'cm'],['M','Mantel',M,cm2],['O','Oberfläche',O,cm2],['V','Volumen',V_,cm3]],
+    steps:[
+      {t:'Was ist gegeben?', on:[], hl:['h'],
+        p:`Die Grundfläche ist ein gleichseitiges Dreieck mit der Seite ${V.a}. Die Spitze liegt genau über dem Schwerpunkt des Dreiecks.`,
+        f:[`${V.a} = ${fmt(a)} cm`, `${V.h} = ${fmt(h)} cm`]},
+      {t:'Höhe des Grunddreiecks', on:[], hl:['base','hg'],
+        p:`Die Höhe ${V.hg} teilt das gleichseitige Dreieck in zwei rechtwinklige Dreiecke. Mit Pythagoras: Hypotenuse ${V.a}, Kathete ${fr(V.a,'2')}.`,
+        f:[`${V.hg} = ${sq(`${V.a}² − (${fr(V.a,'2')})²`)} = ${fr(V.a,'2')} · √3`, `${V.hg} = ${fr(fmt(a),'2')} · √3`], r:`${V.hg} ≈ ${fmt(hg)} cm`},
+      {t:'Grundfläche G', on:['G'], hl:['base','hg'],
+        p:`Dreiecksfläche: Grundseite mal Höhe durch zwei.`,
+        f:[`${V.G} = ${fr(V.a+' · '+V.hg,'2')}`, `${V.G} = ${fr(fmt(a)+' · '+fmt(hg),'2')}`], r:`${V.G} ≈ ${fmt(G)} ${cm2}`,
+        tip:`Direkt: ${V.G} = ${fr(V.a+'²','4')} · √3`},
+      {t:'Volumen V', on:['V'], hl:['base','h'],
+        p:`Wie bei jeder Pyramide: ein Drittel von Grundfläche mal Höhe.`,
+        f:[`${V.Vol} = ${fr(V.G+' · '+V.h,'3')}`, `${V.Vol} = ${fr(fmt(G)+' · '+fmt(h),'3')}`], r:`${V.Vol} ≈ ${fmt(V_)} ${cm3}`},
+      {t:'Abstand r zur Seitenmitte', on:[], hl:['r','hg'],
+        p:`Der Fusspunkt der Körperhöhe ist der Schwerpunkt. Er teilt die Dreieckshöhe im Verhältnis 2 : 1. Der kurze Teil ${V.r} reicht bis zur Seitenmitte.`,
+        f:[`${V.r} = ${fr(V.hg,'3')}`, `${V.r} = ${fr(fmt(hg),'3')}`], r:`${V.r} ≈ ${fmt(r)} cm`},
+      {t:'Seitenhöhe mit Pythagoras', on:['hs'], hl:['pyth','h','hs'],
+        p:`Im grünen rechtwinkligen Dreieck sind ${V.h} und ${V.r} die Katheten. Die Seitenhöhe ${V.hs} ist die Hypotenuse.`,
+        f:[`${V.hs} = ${sq(`${V.h}² + ${V.r}²`)}`, `${V.hs} = ${sq(`${fmt(h)}² + ${fmt(r)}²`)}`], r:`${V.hs} ≈ ${fmt(hs)} cm`},
+      {t:'Mantel M', on:['M'], hl:['faces','hs'],
+        p:`Drei gleiche Dreiecke mit Grundseite ${V.a} und Höhe ${V.hs}.`,
+        f:[`${V.AD} = ${fr(V.a+' · '+V.hs,'2')} = ${fr(fmt(a)+' · '+fmt(hs),'2')} ≈ ${fmt(AD)} ${cm2}`, `${V.M} = 3 · ${V.AD} = 3 · ${fmt(AD)}`], r:`${V.M} ≈ ${fmt(M)} ${cm2}`},
+      {t:'Oberfläche O', on:['O'], hl:['base','faces'],
+        p:`Grundfläche plus Mantel. Im aufgeklappten Netz siehst du alle vier Dreiecke.`,
+        f:[`${V.O} = ${V.G} + ${V.M}`, `${V.O} = ${fmt(G)} + ${fmt(M)}`], r:`${V.O} ≈ ${fmt(O)} ${cm2}`}
+    ]};
+}
+
+/* ---------- Geometrie ---------- */
+function geom(type,a,b,h){
+  let P;
+  if(type==='tri'){
+    const r=a*Math.sqrt(3)/6, R=2*r;
+    P=[[-a/2,0,r],[a/2,0,r],[0,0,-R]];
+  } else {
+    P=[[-a/2,0,b/2],[a/2,0,b/2],[a/2,0,-b/2],[-a/2,0,-b/2]];
+  }
+  const edges=P.map((p,i)=>{
+    const q=P[(i+1)%P.length];
+    const m=[(p[0]+q[0])/2,0,(p[2]+q[2])/2];
+    const d=Math.hypot(m[0],m[2]);
+    const w=[m[0]/d,0,m[2]/d];
+    return {p,q,m,d,w,hs:Math.hypot(h,d),phi0:Math.atan2(h,-d)};
+  });
+  return {P,edges,apex:[0,h,0]};
+}
+function apexAt(e,t){
+  const phi=e.phi0*(1-t), c=Math.cos(phi), s=Math.sin(phi);
+  return [e.m[0]+e.hs*c*e.w[0], e.hs*s, e.m[2]+e.hs*c*e.w[2]];
+}
+const sub3=(u,v)=>[u[0]-v[0],u[1]-v[1],u[2]-v[2]];
+const add3=(u,v)=>[u[0]+v[0],u[1]+v[1],u[2]+v[2]];
+const mul3=(u,k)=>[u[0]*k,u[1]*k,u[2]*k];
+const cross=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+const dot=(u,v)=>u[0]*v[0]+u[1]*v[1]+u[2]*v[2];
+const lerp3=(u,v,k)=>[u[0]+(v[0]-u[0])*k,u[1]+(v[1]-u[1])*k,u[2]+(v[2]-u[2])*k];
+
+/* ---------- Zeichnen ---------- */
+const cv=$('#cv'), ctx=cv.getContext('2d');
+function tok(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function rgba(hex,al){
+  hex=hex.replace('#','');
+  if(hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const n=parseInt(hex,16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${al})`;
+}
+
+function draw(){
+  const W=cv.clientWidth, H=cv.clientHeight; if(!W||!H) return;
+  const dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const C={ink:tok('--ink'),muted:tok('--muted'),surface:tok('--surface'),base:tok('--c-base'),h:tok('--c-h'),hs:tok('--c-hs'),hs2:tok('--c-hs2'),face:tok('--c-face'),s:tok('--c-s')};
+  const v=vals[state.type], type=state.type, a=v.a, b=type==='rect'?v.b:a, h=v.h, t=state.unfold;
+  const g=geom(type,a,b,h);
+  const data=compute(type,a,b,h);
+  const hl=new Set(data.steps[state.step].hl);
+
+  // Skalierung
+  const maxCorner=Math.max(...g.P.map(p=>Math.hypot(p[0],p[2])));
+  const netR=Math.max(...g.edges.map(e=>e.d+e.hs));
+  const ext0=Math.max(maxCorner,h*0.62), ext1=Math.max(netR,maxCorner);
+  const ext=ext0+(ext1-ext0)*t;
+  const scale=Math.min(W,H)*0.40/ext;
+  const yOff=h*0.45*(1-t);
+  const cy_=Math.cos(state.yaw), sy=Math.sin(state.yaw), cp=Math.cos(state.pitch), sp=Math.sin(state.pitch);
+  const D=ext*7;
+  const rot=p=>{const x=p[0],y=p[1]-yOff,z=p[2];const x1=x*cy_+z*sy, z1=-x*sy+z*cy_;return [x1,y*cp-z1*sp,y*sp+z1*cp];};
+  const pr=p=>{const r=rot(p);const k=D/(D-r[2]);return [W/2+r[0]*k*scale, H/2+18-r[1]*k*scale, r[2]];};
+  const nz=n=>{const z1=-n[0]*sy+n[2]*cy_;return n[1]*sp+z1*cp;};
+
+  // Flächen
+  const sides=g.edges.map((e,i)=>{
+    const S=apexAt(e,t); let n=cross(sub3(e.q,e.p),sub3(S,e.p)); if(dot(n,e.w)<0) n=mul3(n,-1);
+    return {pts:[e.p,e.q,S],kind:'side',i,n,S};
+  });
+  const base={pts:g.P,kind:'base',n:[0,-1,0]};
+  const faces=[base,...sides];
+  faces.forEach(f=>{f.z=f.pts.reduce((s,p)=>s+rot(p)[2],0)/f.pts.length;f.vis=nz(f.n)>0;});
+  const sorted=[...faces].sort((x,y)=>x.z-y.z);
+  const isFaceOn=i=>hl.has('faces')||(hl.has('face')&&(i===0||(type==='rect'&&i===2)))||(hl.has('faceb')&&(i===1||i===3));
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  for(const f of sorted){
+    ctx.beginPath(); f.pts.forEach((p,k)=>{const q=pr(p);k?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}); ctx.closePath();
+    if(f.kind==='base') ctx.fillStyle=hl.has('base')?rgba(C.base,.32):rgba(C.ink,.04);
+    else ctx.fillStyle=isFaceOn(f.i)?rgba(C.face,.42):rgba(C.ink,.06);
+    ctx.fill();
+  }
+  // Kanten
+  const n=g.P.length;
+  const line=(p,q,col,w,dash)=>{const A=pr(p),B=pr(q);ctx.beginPath();ctx.setLineDash(dash||[]);ctx.strokeStyle=col;ctx.lineWidth=w;ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke();ctx.setLineDash([]);};
+  if(t<0.01){
+    for(let i=0;i<n;i++){
+      const vis=base.vis||sides[i].vis;
+      line(g.P[i],g.P[(i+1)%n],vis?C.ink:C.muted,vis?1.8:1.2,vis?null:[5,5]);
+      const vis2=sides[i].vis||sides[(i-1+n)%n].vis;
+      line(g.P[i],g.apex,vis2?C.ink:C.muted,vis2?1.8:1.2,vis2?null:[5,5]);
+    }
+  } else {
+    for(let i=0;i<n;i++){ line(g.P[i],g.P[(i+1)%n],C.ink,1.8); line(sides[i].pts[0],sides[i].S,C.ink,1.8); line(sides[i].pts[1],sides[i].S,C.ink,1.8); }
+  }
+
+  // Overlays
+  const F=[0,0,0];
+  const labels=[];
+  const rightAngle=(at,u1,u2,col)=>{const e=Math.min(a,h)*0.1;const p1=add3(at,mul3(u1,e)),p2=add3(add3(at,mul3(u1,e)),mul3(u2,e)),p3=add3(at,mul3(u2,e));const A=pr(p1),B=pr(p2),Cc=pr(p3);ctx.beginPath();ctx.strokeStyle=col;ctx.lineWidth=1.4;ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.lineTo(Cc[0],Cc[1]);ctx.stroke();};
+  const pyth=(ei,col,legLabel)=>{
+    const e=g.edges[ei]; const pts=[F,e.m,g.apex];
+    ctx.beginPath(); pts.forEach((p,k)=>{const q=pr(p);k?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);}); ctx.closePath();
+    ctx.fillStyle=rgba(col,.24); ctx.fill(); ctx.strokeStyle=col; ctx.lineWidth=1.2; ctx.stroke();
+    line(F,e.m,C.base,3);
+    rightAngle(F,[0,1,0],e.w,C.ink);
+    labels.push({tx:legLabel,p:lerp3(F,e.m,.5),col:C.base,dy:14});
+  };
+  if(t<0.02){
+    if(hl.has('pyth')) pyth(0,C.hs, type==='tri'?['r']:(type==='rect'?['b/2']:['a/2']));
+    if(hl.has('pythb')) pyth(1,C.hs2,['a/2']);
+  }
+  if(hl.has('hg')&&type==='tri'){ const e=g.edges[0]; line(g.P[2],e.m,C.base,2.6,[7,5]); labels.push({tx:['h','g'],p:lerp3(g.P[2],e.m,.35),col:C.base,dx:14}); rightAngle(e.m,mul3(e.w,-1),[1,0,0],C.ink); }
+  if(hl.has('r')&&type==='tri'&&!hl.has('pyth')){ const e=g.edges[0]; line(F,e.m,C.base,3.4); labels.push({tx:['r'],p:lerp3(F,e.m,.5),col:C.base,dx:14,dy:2}); ctx.fillStyle=C.ink; const q=pr(F); ctx.beginPath(); ctx.arc(q[0],q[1],3.5,0,7); ctx.fill(); }
+  if(hl.has('h')&&t<0.02){ line(F,g.apex,C.h,3,[6,4]); const q=pr(F); ctx.fillStyle=C.h; ctx.beginPath(); ctx.arc(q[0],q[1],3.5,0,7); ctx.fill(); labels.push({tx:['h'],p:lerp3(F,g.apex,.5),col:C.h,dx:-14}); }
+  if(hl.has('hs')){ const e=g.edges[0]; line(e.m,sides[0].S,C.hs,3.2); labels.push({tx:type==='rect'?['h','a']:['h','s'],p:lerp3(e.m,sides[0].S,.55),col:C.hs,dx:16}); }
+  if(hl.has('hb')){ const e=g.edges[1]; line(e.m,sides[1].S,C.hs2,3.2); labels.push({tx:['h','b'],p:lerp3(e.m,sides[1].S,.55),col:C.hs2,dx:16}); }
+  if(hl.has('s')){ line(g.P[1],sides[0].S,C.s,3.4); labels.push({tx:['s'],p:lerp3(g.P[1],sides[0].S,.5),col:C.s,dx:14}); }
+  // Kantenbeschriftung
+  const outLabel=(e,tx)=>{const A=pr(e.m),B=pr(add3(e.m,mul3(e.w,1)));let dx=B[0]-A[0],dy=B[1]-A[1];const L=Math.hypot(dx,dy)||1;labels.push({tx,p:e.m,col:C.ink,dx:dx/L*16,dy:dy/L*16});};
+  outLabel(g.edges[0],['a']);
+  if(type==='rect') outLabel(g.edges[1],['b']);
+  labels.push({tx:['S'],p:t<0.02?g.apex:sides[0].S,col:C.muted,dy:-14});
+
+  ctx.textBaseline='middle';
+  for(const L of labels){
+    const q=pr(L.p); const x=q[0]+(L.dx||0), y=q[1]+(L.dy||0);
+    ctx.font='700 15px "JetBrains Mono", ui-monospace, monospace';
+    const w1=ctx.measureText(L.tx[0]).width; ctx.font='700 11px "JetBrains Mono", ui-monospace, monospace';
+    const w2=L.tx[1]?ctx.measureText(L.tx[1]).width:0; const W_=w1+w2+8;
+    ctx.fillStyle=rgba(C.surface.startsWith('#')?C.surface:'#ffffff',.85);
+    ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x-W_/2,y-11,W_,22,6); else ctx.rect(x-W_/2,y-11,W_,22); ctx.fill();
+    ctx.fillStyle=L.col; ctx.font='italic 700 15px "JetBrains Mono", ui-monospace, monospace'; ctx.textAlign='left';
+    ctx.fillText(L.tx[0],x-W_/2+4,y);
+    if(L.tx[1]){ctx.font='700 11px "JetBrains Mono", ui-monospace, monospace';ctx.fillText(L.tx[1],x-W_/2+4+w1,y+5);}
+  }
+}
+
+/* ---------- Lösungsweg ---------- */
+function stepHTML(s,i,total){
+  return `<article class="step ${i===state.step?'cur':''}" data-i="${i}">
+    <span class="step-no">Schritt ${i+1} von ${total}</span>
+    <h3>${s.t}</h3>
+    <p>${s.p}</p>
+    <div class="calc">${s.f.map(x=>ln(x)).join('')}${s.r?ln(s.r,'res'):''}</div>
+    ${s.tip?`<p class="tip">${s.tip}</p>`:''}
+  </article>`;
+}
+function render(){
+  const v=vals[state.type], b=state.type==='rect'?v.b:v.a;
+  const data=compute(state.type,v.a,b,v.h);
+  const N=data.steps.length; state.step=Math.max(0,Math.min(N-1,state.step));
+  $('#dots').innerHTML=data.steps.map((s,i)=>`<button class="dot ${i<state.step?'done':''} ${i===state.step?'cur':''}" data-i="${i}" type="button" aria-label="Schritt ${i+1}: ${s.t.replace(/<[^>]+>/g,'')}">${i+1}</button>`).join('');
+  const box=$('#steps');
+  if(state.all){ box.className='list'; box.style.display='flex'; box.style.flexDirection='column'; box.style.gap='12px'; box.innerHTML=data.steps.map((s,i)=>stepHTML(s,i,N)).join(''); }
+  else { box.className=''; box.style.display=''; box.innerHTML=stepHTML(data.steps[state.step],state.step,N); }
+  $('#nav').hidden=state.all;
+  $('#prev').disabled=state.step===0; $('#next').disabled=state.step===N-1;
+  $('#next').textContent=state.step===N-2?'Letzter Schritt':'Weiter';
+  const on=new Set(data.steps[state.step].on);
+  $('#summary').innerHTML=data.summary.map(([k,lab,val,u])=>`<div class="chip ${on.has(k)?'on':''}"><span class="k">${lab}</span><span class="val">${fmt(val)} ${u}</span></div>`).join('');
+  draw();
+}
+$('#dots').addEventListener('click',e=>{const d=e.target.closest('.dot');if(!d)return;state.step=+d.dataset.i;render();});
+$('#steps').addEventListener('click',e=>{if(!state.all)return;const s=e.target.closest('.step');if(!s)return;state.step=+s.dataset.i;render();});
+$('#prev').addEventListener('click',()=>{state.step--;render();});
+$('#next').addEventListener('click',()=>{state.step++;render();});
+$('#show-all').addEventListener('change',e=>{state.all=e.target.checked;render();});
+
+/* ---------- Regler ---------- */
+function syncInputs(){
+  const v=vals[state.type];
+  ['a','b','h'].forEach(k=>{$('#rg-'+k).value=v[k];$('#in-'+k).value=v[k];});
+  $('#row-b').hidden=state.type!=='rect';
+  $('#lab-a').textContent=state.type==='rect'?'Grundkante a (vorne)':(state.type==='tri'?'Grundseite a':'Grundkante a');
+  $('#lab-b').textContent='Grundkante b (seitlich)';
+}
+['a','b','h'].forEach(k=>{
+  $('#rg-'+k).addEventListener('input',e=>{vals[state.type][k]=+e.target.value;$('#in-'+k).value=e.target.value;render();});
+  $('#in-'+k).addEventListener('input',e=>{const x=parseFloat(String(e.target.value).replace(',','.'));if(!(x>0)||x>30)return;vals[state.type][k]=x;$('#rg-'+k).value=x;render();});
+});
+$('#rg-u').addEventListener('input',e=>{state.unfold=+e.target.value/100;$('#u-val').textContent=e.target.value+' %';draw();});
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
+function setType(t){
+  state.type=t; state.step=0;
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',x.dataset.type===t?'true':'false'));
+  syncInputs(); render(); newTask();
+}
+
+/* ---------- Drehen ---------- */
+let drag=null;
+cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,yaw:state.yaw,pitch:state.pitch};cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{if(!drag)return;state.yaw=drag.yaw+(e.clientX-drag.x)*0.01;state.pitch=Math.max(-0.15,Math.min(1.45,drag.pitch+(e.clientY-drag.y)*0.008));draw();});
+const end=()=>{drag=null;}; cv.addEventListener('pointerup',end); cv.addEventListener('pointercancel',end);
+$('#reset-view').addEventListener('click',()=>{state.yaw=-0.62;state.pitch=0.38;draw();});
+new ResizeObserver(()=>draw()).observe(cv);
+if(window.matchMedia){const mq=matchMedia('(prefers-color-scheme: dark)');mq.addEventListener&&mq.addEventListener('change',draw);}
+new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+document.fonts&&document.fonts.ready.then(draw);
+
+/* ---------- Training ---------- */
+const ri=(lo,hi)=>lo+Math.floor(Math.random()*(hi-lo+1));
+const asks={
+  quad:[['hs','Seitenhöhe '+V.hs,'cm'],['V','Volumen '+V.Vol,'cm³'],['O','Oberfläche '+V.O,'cm²']],
+  rect:[['ha','Seitenhöhe '+V.ha,'cm'],['hb','Seitenhöhe '+V.hb,'cm'],['V','Volumen '+V.Vol,'cm³'],['O','Oberfläche '+V.O,'cm²']],
+  tri:[['G','Grundfläche '+V.G,'cm²'],['hs','Seitenhöhe '+V.hs,'cm'],['V','Volumen '+V.Vol,'cm³'],['O','Oberfläche '+V.O,'cm²']]
+};
+let task=null, streak=0;
+function newTask(){
+  const type=state.type; const a=ri(3,10); let b=ri(3,10); if(b===a) b=a+2; const h=ri(3,12);
+  task={type,a,b,h,res:compute(type,a,b,h).vals,done:false};
+  const name={quad:'quadratische Pyramide',rect:'Rechteckpyramide',tri:'Dreieckspyramide mit gleichseitiger Grundfläche'}[type];
+  const giv= type==='rect'?`die Grundkanten <b>a = ${a} cm</b> und <b>b = ${b} cm</b>`:(type==='tri'?`die Grundseite <b>a = ${a} cm</b>`:`die Grundkante <b>a = ${a} cm</b>`);
+  $('#task').innerHTML=`Eine ${name} hat ${giv} und die Körperhöhe <b>h = ${h} cm</b>. Berechne:`;
+  $('#ans-fields').innerHTML=asks[type].map(([k,lab,u])=>`<div class="ans" data-k="${k}"><label for="ans-${k}">${lab}</label><input id="ans-${k}" inputmode="decimal" autocomplete="off"><span class="unit">${u}</span><span class="mark" aria-hidden="true"></span><span class="sol" hidden></span></div>`).join('');
+  $('#feedback').textContent='';
+}
+$('#answers').addEventListener('submit',e=>{
+  e.preventDefault(); let ok=0, n=0, empty=0;
+  document.querySelectorAll('.ans').forEach(row=>{
+    const k=row.dataset.k, want=task.res[k]; const raw=row.querySelector('input').value.replace(/'/g,'').replace(',','.').trim();
+    row.classList.remove('ok','bad'); n++;
+    if(raw===''){empty++;row.querySelector('.mark').textContent='';return;}
+    const got=parseFloat(raw); const good=Math.abs(got-want)<=Math.max(0.051,Math.abs(want)*0.004);
+    row.classList.add(good?'ok':'bad'); row.querySelector('.mark').textContent=good?'✓':'✗'; if(good) ok++;
+  });
+  if(ok===n){ if(!task.done){streak++;task.done=true;} $('#feedback').textContent='Alles richtig. Stark!'; }
+  else if(empty===n) $('#feedback').textContent='Trag zuerst deine Resultate ein.';
+  else $('#feedback').textContent=`${ok} von ${n} richtig. Tipp: Kontrollier, ob du h und die Seitenhöhe verwechselt hast.`;
+  $('#streak').textContent='Richtig gelöst: '+streak;
+});
+$('#reveal').addEventListener('click',()=>{
+  document.querySelectorAll('.ans').forEach(row=>{const s=row.querySelector('.sol');s.hidden=false;s.textContent='Lösung: '+fmt(task.res[row.dataset.k]);});
+});
+$('#new-task').addEventListener('click',newTask);
+$('#open-task').addEventListener('click',()=>{
+  vals[task.type]={a:task.a,b:task.type==='rect'?task.b:task.a,h:task.h};
+  state.step=0; syncInputs(); render();
+  document.querySelector('.explorer').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+});
+
+/* ---------- Formelblatt ---------- */
+$('#sheet').innerHTML=[
+  ['Quadratische Pyramide',[`${V.G} = ${V.a}²`,`${V.hs} = ${sq(`${V.h}² + (${fr(V.a,'2')})²`)}`,`${V.M} = 4 · ${fr(V.a+' · '+V.hs,'2')} = 2${V.a}${V.hs}`,`${V.O} = ${V.G} + ${V.M}`,`${V.Vol} = ${fr('1','3')} · ${V.a}² · ${V.h}`]],
+  ['Rechteckpyramide',[`${V.G} = ${V.a} · ${V.b}`,`${V.ha} = ${sq(`${V.h}² + (${fr(V.b,'2')})²`)}`,`${V.hb} = ${sq(`${V.h}² + (${fr(V.a,'2')})²`)}`,`${V.M} = ${V.a}${V.ha} + ${V.b}${V.hb}`,`${V.O} = ${V.G} + ${V.M}`,`${V.Vol} = ${fr('1','3')} · ${V.a} · ${V.b} · ${V.h}`]],
+  ['Dreieckspyramide',[`${V.hg} = ${fr(V.a,'2')} · √3`,`${V.G} = ${fr(V.a+'²','4')} · √3`,`${V.r} = ${fr(V.hg,'3')}`,`${V.hs} = ${sq(`${V.h}² + ${V.r}²`)}`,`${V.M} = 3 · ${fr(V.a+' · '+V.hs,'2')}`,`${V.O} = ${V.G} + ${V.M}`,`${V.Vol} = ${fr('1','3')} · ${V.G} · ${V.h}`]]
+].map(([t,fs])=>`<div class="panel"><h3>${t}</h3><div class="calc">${fs.map(x=>ln(x)).join('')}</div></div>`).join('');
+
+syncInputs(); render(); newTask();
+})();
+</script>
+</body>
+</html>
